@@ -3,6 +3,7 @@ package gocode
 import (
 	"bytes"
 	"go/ast"
+	"go/build"
 	"go/parser"
 	"go/token"
 )
@@ -31,17 +32,17 @@ type auto_complete_file struct {
 	filescope *scope
 	scope     *scope
 
-	cursor int // for current file buffer only
-	fset   *token.FileSet
-	env    *gocode_env
+	cursor  int // for current file buffer only
+	fset    *token.FileSet
+	context build.Context
 }
 
-func new_auto_complete_file(name string, env *gocode_env) *auto_complete_file {
+func new_auto_complete_file(name string, context build.Context) *auto_complete_file {
 	p := new(auto_complete_file)
 	p.name = name
 	p.cursor = -1
 	p.fset = token.NewFileSet()
-	p.env = env
+	p.context = context
 	return p
 }
 
@@ -57,7 +58,7 @@ func (f *auto_complete_file) process_data(data []byte) {
 	f.package_name = package_name(file)
 
 	f.decls = make(map[string]*decl)
-	f.packages = collect_package_imports(f.name, file.Decls, f.env)
+	f.packages = collect_package_imports(f.name, file.Decls, f.context)
 	f.filescope = new_scope(nil)
 	f.scope = f.filescope
 
@@ -103,6 +104,10 @@ func (f *auto_complete_file) process_decl_locals(decl ast.Decl) {
 			f.process_block_stmt(t.Body)
 
 		}
+	default:
+		v := new(func_lit_visitor)
+		v.ctx = f
+		ast.Walk(v, decl)
 	}
 }
 
@@ -150,8 +155,8 @@ type func_lit_visitor struct {
 
 func (v *func_lit_visitor) Visit(node ast.Node) ast.Visitor {
 	if t, ok := node.(*ast.FuncLit); ok && v.ctx.cursor_in(t.Body) {
-		var s *scope
-		v.ctx.scope, s = advance_scope(v.ctx.scope)
+		s := v.ctx.scope
+		v.ctx.scope = new_scope(v.ctx.scope)
 
 		v.ctx.process_field_list(t.Type.Params, s)
 		v.ctx.process_field_list(t.Type.Results, s)

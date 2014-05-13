@@ -2,6 +2,7 @@ package gocode
 
 import (
 	"path/filepath"
+	"go/build"
 	"runtime"
 	"strings"
 	"sync"
@@ -20,7 +21,7 @@ type margoState struct {
 	sync.Mutex
 
 	ctx       *auto_complete_context
-	env       *gocode_env
+	env       build.Context
 	pkgCache  package_cache
 	declCache *decl_cache
 }
@@ -32,7 +33,7 @@ type MargoCandidate struct {
 }
 
 func newMargoState() *margoState {
-	env := &gocode_env{}
+	env := build.Context{}
 	pkgCache := new_package_cache()
 	declCache := new_decl_cache(env)
 	return &margoState{
