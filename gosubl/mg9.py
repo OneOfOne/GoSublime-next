@@ -84,6 +84,7 @@ def sanity_check(env={}, error_log=False):
 		('go.version', sh.GO_VERSION),
 		('GOROOT', '%s' % env.get('GOROOT', ns)),
 		('GOPATH', '%s' % env.get('GOPATH', ns)),
+		('MARGOPATH', '%s' % env.get('MARGOPATH', ns)),
 		('GOBIN', env.get('GOBIN', ns)),
 		('cfg.shell', str(gs.lst(cfg.shell))),
 		('env.shell', env.get('SHELL', '')),
@@ -112,16 +113,11 @@ def _tp(s):
 def _mg_exists():
 	return bool(sh.which('margo'))
 
-def build_mg(force=False):
-	if force:
-		pass
-	elif _mg_exists():
-		return 'ok'
-
+def build_mg():
 	gs.notify('GoSublime', 'Installing MarGo')
 
 	gobin = sh.bin_dir()
-	gopath = gs.dist_path()
+	gopath = sh.getenv('MARGOPATH')
 	wd = gobin
 	env = {
 		'CGO_ENABLED': '0',
@@ -129,14 +125,20 @@ def build_mg(force=False):
 		'GOPATH': gopath,
 	}
 
-	# do a cleanup just-in-case there are old packages lying around... we don't really care if it fails
-	clean = sh.Command(['go', 'clean', '-i', 'gosubli.me/...'])
-	clean.wd = wd
-	clean.env = env
-	clean.run()
+	# do a cleanup just-in-case there are old packages built by other other versions of the Go compiler lying around...
+	# we don't really care if it fails
+	for p in gopath.split(os.pathsep):
+		if p:
+			pat = './gosubli.me/...'
+			if p == gs.dist_path():
+				pat = './...'
+			clean = sh.Command(['go', 'clean', '-i', '-x', pat])
+			clean.wd = p
+			clean.env = {'GOPATH': p}
+			clean.run()
 
 	f = gs.setting('_build_flags') or ['-v', '-x']
-	args = gs.lst('go', 'build', f, '-o', sh.exe('margo'), 'gosubli.me/margo')
+	args = gs.lst('go', 'build', '-tags', 'gosublime', f, '-o', sh.exe('margo'), 'gosubli.me/margo')
 
 	build = sh.Command(args)
 	build.wd = wd
@@ -188,7 +190,7 @@ def _install(maybe=False):
 	start = time.time()
 
 	gs.set_attr(_inst_name(), 'busy')
-	m_out = build_mg()
+	m_out = 'ok' if _mg_exists() else build_mg()
 	gs.set_attr(_inst_name(), 'done')
 
 	if m_out == 'ok':
@@ -439,7 +441,9 @@ def _recv():
 			try:
 				ln = ln.strip()
 				if ln:
+					res_tm = time.time()
 					r, _ = gs.json_decode(ln, {})
+					dec_tm = time.time()
 					token = r.get('token', '')
 					tag = r.get('tag', '')
 					k = REQUEST_PREFIX+token
@@ -460,7 +464,8 @@ def _recv():
 							'method': req.method,
 							'tag': tag,
 							'token': token,
-							'dur': '%0.3fs' % (time.time() - req.tm),
+							'req dur': '%0.3fs' % (res_tm - req.tm),
+							'dec dur': '%0.3fs' % (dec_tm - res_tm),
 							'err': err,
 							'size': '%0.1fK' % (len(ln)/1024.0),
 						})
