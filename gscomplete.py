@@ -2,6 +2,7 @@ from gosubl import cfg
 from gosubl import ev
 from gosubl import gs
 from gosubl import mg9
+from gosubl import ui
 from gosubl import vu
 from os.path import basename
 from os.path import dirname
@@ -54,7 +55,7 @@ def snippet_match(ctx, m):
 			elif p != q:
 				return False
 	except:
-		gs.notice(DOMAIN, gs.traceback())
+		ui.trace(DOMAIN)
 	return True
 
 def expand_snippet_vars(vars, text, title, value):
@@ -99,9 +100,9 @@ def resolve_snippets(ctx):
 								s = u'%s\t%s \u0282' % (txt, ttl)
 								cl.add((s, val))
 			except:
-				gs.notice(DOMAIN, gs.traceback())
+				ui.trace(DOMAIN)
 	except:
-		gs.notice(DOMAIN, gs.traceback())
+		ui.trace(DOMAIN)
 	return list(cl)
 
 class GoSublime(sublime_plugin.EventListener):
@@ -213,7 +214,7 @@ class GoSublime(sublime_plugin.EventListener):
 		autocomplete_closures = gs.setting('autocomplete_closures', False)
 		res, err = mg9.complete(fn, src, offset)
 		if err:
-			gs.notice(DOMAIN, err)
+			ui.error(DOMAIN, err)
 
 		ents = res['Candidates']
 		if not ents and gs.setting('autocomplete_suggest_imports') is True:
@@ -225,7 +226,7 @@ class GoSublime(sublime_plugin.EventListener):
 			try:
 				name_fx = re.compile(name_fx_pat)
 			except Exception as ex:
-				gs.notice(DOMAIN, 'Cannot filter completions: %s' % ex)
+				ui.error(DOMAIN, 'Cannot filter completions: %s' % ex)
 
 		in_iface = GoSublime.current_interface['name'] in GoSublime.INTERFACES and src[offset-1:offset] == '.'
 		for ent in ents:
