@@ -221,7 +221,7 @@ def _check_env(e):
 
 		cb = lambda ok: gs.show_output(DOMAIN, missing_message, merge_domain=True, print_output=False)
 		ui.error(DOMAIN, missing_message)
-		vu.open(gs.dist_path('USAGE.md')).focus(pat='^Quirks', cb=cb)
+		vu.open(fn=gs.dist_path('USAGE.md'), pat='^Quirks', cb=cb)
 
 def _cleanup():
 	try:
@@ -655,16 +655,28 @@ def on_ignore(res, err):
 	return True
 
 def mg_status(res, _):
-	k = res.get('key', '?')
-	o = res.get('order', k)
-	d = ui.status.drawer(k, order=o)
-	d.set_text(res.get('text', ''))
+	k = res.get('Key', '?')
+	s = res.get('Text', '')
+	dmn = 'MarGo'
+
+	if k == 'margo.error':
+		ui.error(dmn, s)
+	elif k == 'margo.note':
+		ui.note(dmn, s)
+	else:
+		ui.status.drawer(k).set_text(s)
 
 	return True
 
 def mg_open(res, _):
 	def f():
-		vu.open(res.get('fn'))
+		vu.open(
+			fn=res.get('Fn', ''),
+			bg=res.get('Bg', False),
+			row=res.get('Row', 0),
+			col=res.get('Col', 0),
+			pat=res.get('Pat', '')
+		)
 
 	gs.do(DOMAIN, f)
 
